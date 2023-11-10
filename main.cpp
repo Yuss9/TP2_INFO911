@@ -5,23 +5,53 @@
 using namespace cv;
 using namespace std;
 
+#include "opencv2/imgproc.hpp"
+#include <opencv2/highgui.hpp>
+using namespace cv;
 
-Mat filtreM(Mat input) {
-    // Définition du masque M (filtre moyenneur)
-    Mat M = (Mat_<float>(3, 3) << 1.0 / 16, 2.0 / 16, 1.0 / 16,
-                                        2.0 / 16, 4.0 / 16, 2.0 / 16,
-                                        1.0 / 16, 2.0 / 16, 1.0 / 16);
+Mat filtreM(Mat input, Mat M) {
+    Mat result = Mat::zeros(input.size(), input.type());
 
-    // Convolution de l'image avec le filtre moyenneur
-    Mat result;
-    filter2D(input, result, -1, M, Point(-1, -1), 0, BORDER_DEFAULT);
+    int mRows = M.rows;
+    int mCols = M.cols;
+    int mCenterX = mCols / 2;
+    int mCenterY = mRows / 2;
+
+    for (int i = 0; i < input.rows; ++i) {
+        for (int j = 0; j < input.cols; ++j) {
+            double sum = 0.0;
+
+            for (int m = 0; m < mRows; ++m) {
+                int mm = mRows - 1 - m;
+
+                for (int n = 0; n < mCols; ++n) {
+                    int nn = mCols - 1 - n;
+
+                    int ii = i + m - mCenterY;
+                    int jj = j + n - mCenterX;
+
+                    if (ii >= 0 && ii < input.rows && jj >= 0 && jj < input.cols) {
+                        sum += input.at<uchar>(ii, jj) * M.at<float>(mm, nn);
+                    }
+                }
+            }
+
+            result.at<uchar>(i, j) = saturate_cast<uchar>(sum);
+        }
+    }
 
     return result;
 }
 
-int main(int argc, char* argv[]) {
-    namedWindow("Youpi"); // crée une fenêtre
-    Mat input = imread(argv[1]); // lit l'image donnée en paramètre
+int main(int argc, char* argv[])
+{
+    namedWindow("Youpi"); 
+    Mat input = imread(argv[1]); 
+
+    Mat M = (Mat_<float>(3, 3) << 1.0 / 16, 2.0 / 16, 1.0 / 16,
+                                        2.0 / 16, 4.0 / 16, 2.0 / 16,
+                                        1.0 / 16, 2.0 / 16, 1.0 / 16);
+
 
     if (input.channels() == 3)
         cvtColor(input, input, COLOR_BGR2GRAY);
@@ -35,15 +65,15 @@ int main(int argc, char* argv[]) {
         else if (asciicode == 'a') {
             for (int i = 0; i < 100; i++)
             {
-                input = filtreM(input);
+                input = filtreM(input, M);
             }
-            imshow("Youpi", input); // l'affiche dans la fenêtre
+            imshow("Youpi", input);
         } else {
-            imshow("Youpi", input); // l'affiche dans la fenêtre
+            imshow("Youpi", input);
         }
     }
 
-    imwrite("result.png", input); // sauvegarde le résultat
+    imwrite("result.png", input); 
 
     return 0;
 }
