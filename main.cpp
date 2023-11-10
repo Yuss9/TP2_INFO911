@@ -205,7 +205,77 @@ void test_rehausse_contraste(String filename){
 ###################################################################
 */
 
+cv::Mat sobelFilter(const cv::Mat& input, bool isVertical) {
+    cv::Mat result(input.size(), CV_32F, Scalar(0));
+
+    int rows = input.rows;
+    int cols = input.cols;
+
+    int kernelSize = 3;
+    int sobelKernel[3][3] = {{-1, 0, 1}, {-2, 0, 2}, {-1, 0, 1}};
+
+    if (!isVertical) {
+        kernelSize = 3;
+        int tempKernel[3][3] = {{-1, -2, -1}, {0, 0, 0}, {1, 2, 1}};
+        memcpy(sobelKernel, tempKernel, sizeof(int) * 3 * 3);
+    }
+
+    int kernelCenter = kernelSize / 2;
+
+    for (int i = kernelCenter; i < rows - kernelCenter; ++i) {
+        for (int j = kernelCenter; j < cols - kernelCenter; ++j) {
+            float sum = 0.0;
+            for (int u = 0; u < kernelSize; ++u) {
+                for (int v = 0; v < kernelSize; ++v) {
+                    sum += input.at<uchar>(i + u - kernelCenter, j + v - kernelCenter) * sobelKernel[u][v];
+                }
+            }
+            result.at<float>(i, j) = sum;
+        }
+    }
+
+    return result;
+}
+
+void test_sobel(String filename){
+    Mat input = imread(filename, IMREAD_GRAYSCALE);
+
+    if (input.empty()) {
+        cerr << "Error: Couldn't load the image." << endl;
+        return;
+    }
+
+    namedWindow("Original Image", WINDOW_NORMAL);
+    imshow("Original Image", input);
+
+    Mat sobelVertical = sobelFilter(input, true);
+    Mat sobelHorizontal = sobelFilter(input, false);
+
+    // Shift the result to have zero at 128
+    sobelVertical += 128;
+    sobelHorizontal += 128;
+
+    sobelVertical.convertTo(sobelVertical, CV_8U);
+    sobelHorizontal.convertTo(sobelHorizontal, CV_8U);
+
+    namedWindow("Sobel Vertical", WINDOW_NORMAL);
+    imshow("Sobel Vertical", sobelVertical);
+
+    namedWindow("Sobel Horizontal", WINDOW_NORMAL);
+    imshow("Sobel Horizontal", sobelHorizontal);
+
+    waitKey(0);
+}
+
+
+/* 
+###################################################################
+*/
+
+
+
+
 int main(int argc, char* argv[]) {
-    test_rehausse_contraste(argv[1]);
+    test_sobel(argv[1]);
     return 0;
 }
