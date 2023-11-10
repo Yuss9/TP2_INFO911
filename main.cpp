@@ -153,7 +153,59 @@ void test_filtre_median(String filename){
 ###################################################################
 */
 
+
+int alpha = 20; // Valeur initiale du coefficient alpha
+
+void onTrackbarChange(int, void*) {
+    // Cette fonction sera appelée à chaque changement de la position du slider
+    // Elle met à jour la variable alpha
+    alpha = getTrackbarPos("alpha (en %)", "Image");
+}
+
+// ici on utilise filter2D de opencv mais on peut aussi utiliser notre fonction
+Mat rehaussementContraste(Mat input, int alpha) {
+    Mat laplacianMask = (Mat_<float>(3, 3) << 0, -1, 0, -1, 5 + alpha / 100.0, -1, 0, -1, 0);
+    Mat result;
+    filter2D(input, result, -1, laplacianMask, Point(-1, -1), 0, BORDER_DEFAULT);
+
+    return result;
+}
+
+
+void test_rehausse_contraste(String filename){
+    namedWindow("Image");
+    createTrackbar("alpha (en %)", "Image", &alpha, 200, onTrackbarChange);
+    onTrackbarChange(alpha, nullptr); // Initialisation de la valeur alpha
+
+    Mat input = imread(filename);
+
+    while (true) {
+        int keycode = waitKey(50);
+        int asciicode = keycode & 0xff;
+
+        if (input.channels() == 3)
+            cvtColor(input, input, COLOR_BGR2GRAY);
+
+
+        if (asciicode == 'q')
+            break;
+        else if (asciicode == 's') {
+            // Appliquer le rehaussement de contraste à l'image en utilisant le coefficient alpha
+            Mat result = rehaussementContraste(input, alpha);
+            imshow("Image", result);
+        } else {
+            imshow("Image", input);
+        }
+    }
+
+    imwrite("result.png", input);
+}
+
+/* 
+###################################################################
+*/
+
 int main(int argc, char* argv[]) {
-    test_filtre_median(argv[1]);
+    test_rehausse_contraste(argv[1]);
     return 0;
 }
