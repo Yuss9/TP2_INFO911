@@ -272,10 +272,56 @@ void test_sobel(String filename){
 ###################################################################
 */
 
+cv::Mat calculateGradient(const cv::Mat& Ix, const cv::Mat& Iy) {
+    cv::Mat gradientMagnitude(Ix.size(), CV_32F);
+    for (int i = 0; i < Ix.rows; ++i) {
+        for (int j = 0; j < Ix.cols; ++j) {
+            float ix = Ix.at<float>(i, j);
+            float iy = Iy.at<float>(i, j);
+
+            float magnitude = std::sqrt(pow(ix,2) + pow(iy,2) );
+            gradientMagnitude.at<float>(i, j) = magnitude;
+        }
+    }
+
+    return gradientMagnitude;
+}
+
+void test_gradient(string filename) {
+    cv::namedWindow("Original Image", cv::WINDOW_NORMAL);
+    cv::namedWindow("Sobel X", cv::WINDOW_NORMAL);
+    cv::namedWindow("Sobel Y", cv::WINDOW_NORMAL);
+    cv::namedWindow("Gradient Magnitude", cv::WINDOW_NORMAL);
+
+    cv::Mat input = cv::imread(filename, cv::IMREAD_GRAYSCALE);
+
+    if (input.empty()) {
+        std::cerr << "Unable to read the image." << std::endl;
+        return ;
+    }
+
+    cv::Mat sobelX = sobelFilter(input, false);
+    cv::Mat sobelY = sobelFilter(input, true);
+
+    cv::Mat gradientMagnitude = calculateGradient(sobelX, sobelY);
+    gradientMagnitude.convertTo(gradientMagnitude, CV_8U);
+
+    cv::imshow("Original Image", input);
+    cv::imshow("Sobel X", sobelX);
+    cv::imshow("Sobel Y", sobelY);
+    cv::imshow("Gradient Magnitude", gradientMagnitude);
+
+    cv::waitKey(0);
+}
+
+/* 
+###################################################################
+*/
+
 
 
 
 int main(int argc, char* argv[]) {
-    test_sobel(argv[1]);
+    test_gradient(argv[1]);
     return 0;
 }
