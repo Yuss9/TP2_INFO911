@@ -154,7 +154,7 @@ void test_filtre_median(String filename){
 */
 
 
-int alpha = 20; // Valeur initiale du coefficient alpha
+int alpha = 0.6; 
 
 void onTrackbarChange(int, void*) {
     // Cette fonction sera appelée à chaque changement de la position du slider
@@ -162,43 +162,43 @@ void onTrackbarChange(int, void*) {
     alpha = getTrackbarPos("alpha (en %)", "Image");
 }
 
-// ici on utilise filter2D de opencv mais on peut aussi utiliser notre fonction
-Mat rehaussementContraste(Mat input, int alpha) {
-    Mat laplacianMask = (Mat_<float>(3, 3) << 0, -1, 0, -1, 5 + alpha / 100.0, -1, 0, -1, 0);
-    Mat result;
-    filter2D(input, result, -1, laplacianMask, Point(-1, -1), 0, BORDER_DEFAULT);
+Mat rehaussementContraste(Mat input, int alpha_i) {
+    float alpha = alpha_i / 100.0;
+    cv::Mat laplacien = (Mat_<float>(3,3) << 0.0, 1.0, 0.0, 1.0, -4.0, 1.0, 0.0, 1.0, 0.0);
+    cv:Mat dirac = (Mat_<float>(3,3) << 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0);
 
-    return result;
+    Mat R = dirac - alpha * laplacien;
+
+    return filtreM(input, R);
 }
 
 
+
 void test_rehausse_contraste(String filename){
-    namedWindow("Image");
-    createTrackbar("alpha (en %)", "Image", &alpha, 200, onTrackbarChange);
-    onTrackbarChange(alpha, nullptr); // Initialisation de la valeur alpha
+    namedWindow( "Filter");              
+    int alpha = 20;
+    createTrackbar( "alpha (en %)", "Filter", &alpha, 100,  NULL);
+    setTrackbarPos( "alpha (en %)", "Filter", alpha ); // init à 20
 
-    Mat input = imread(filename);
+    Mat input = imread( filename );     // lit l'image donnée en paramètre
+    if ( input.channels() == 3 )
+        cv::cvtColor( input, input, COLOR_BGR2GRAY );
+    
+    while ( true ) {
 
-    while (true) {
-        int keycode = waitKey(50);
+        cv::Mat moyenneur = (Mat_<float>(3,3) << 1.0/16.0f, 2.0/16.0f, 1.0/16.0f, 2.0/16.0f, 4.0/16.0f, 2.0/16.0f, 1.0/16.0f, 2.0/16.0f, 1.0/16.0f);
+        
+
+        int keycode = waitKey( 50 );
         int asciicode = keycode & 0xff;
-
-        if (input.channels() == 3)
-            cvtColor(input, input, COLOR_BGR2GRAY);
-
-
-        if (asciicode == 'q')
-            break;
-        else if (asciicode == 's') {
-            // Appliquer le rehaussement de contraste à l'image en utilisant le coefficient alpha
-            Mat result = rehaussementContraste(input, alpha);
-            imshow("Image", result);
-        } else {
-            imshow("Image", input);
-        }
+        if ( asciicode == 'q' ) break;
+        if ( asciicode == 'M') input = filtreM(input, moyenneur);
+        if ( asciicode == 'm' ) for(int i = 0; i < 100; i++) cv::medianBlur(input, input, 3);
+        if ( asciicode == 's' ) input = rehaussementContraste(input, getTrackbarPos( "alpha (en %)", "Filter")); 
+        imshow( "Filter", input );           
     }
 
-    imwrite("result.png", input);
+    imwrite( "result.png", input );          
 }
 
 /* 
@@ -318,55 +318,115 @@ void test_gradient(string filename) {
 ###################################################################
 */
 
-void marrHildrethEdgeDetection(String filename){
-    Mat input = imread(filename, IMREAD_GRAYSCALE);
-    int threshold = 90;
 
-    if (input.empty()) {
-        cerr << "Error: Couldn't load the image." << endl;
-        return;
-    }
+int t = 20;
 
-    namedWindow("Original Image", WINDOW_NORMAL);
-    imshow("Original Image", input);
+void onTrackbarChangeThreshold(int, void*) {
+    // Cette fonction sera appelée à chaque changement de la position du slider
+    // Elle met à jour la variable threshold
+    t = getTrackbarPos("Treshold track", "Output");
+}
 
-    Mat inputImage = imread(filename);
+bool isSignChanging(cv::Mat input, int row, int col)
+{
+  int pixel1 = input.at<uchar>(row - 1, col - 1);
+  int pixel2 = input.at<uchar>(row - 1, col);
+  int pixel3 = input.at<uchar>(row - 1, col + 1);
+  int pixel4 = input.at<uchar>(row, col - 1);
+  int pixel5 = input.at<uchar>(row, col + 1);
+  int pixel6 = input.at<uchar>(row + 1, col - 1);
+  int pixel7 = input.at<uchar>(row + 1, col);
+  int pixel8 = input.at<uchar>(row + 1, col + 1);
+  return (pixel1 < 0 && pixel2 < 0 && pixel3 < 0 && pixel4 < 0 && pixel5 < 0 && pixel6 < 0 && pixel7 < 0 && pixel8 < 0) ||
+         (pixel1 > 0 && pixel2 > 0 && pixel3 > 0 && pixel4 > 0 && pixel5 > 0 && pixel6 > 0 && pixel7 > 0 && pixel8 > 0);
+}
 
-    Mat grayImage;
-    cvtColor(inputImage, grayImage, COLOR_BGR2GRAY);
+void marrHildrethEdgeDetection(String filename)
+{
+    namedWindow("Output", WINDOW_NORMAL);
+    createTrackbar("Treshold track", "Output", &t, 200, onTrackbarChangeThreshold);
+    onTrackbarChangeThreshold(t, nullptr); // Initialisation de la valeur threshold
 
-    Mat gradX, gradY;
-    Sobel(grayImage, gradX, CV_32F, 1, 0, 3); // Sobel filter for horizontal gradient
-    Sobel(grayImage, gradY, CV_32F, 0, 1, 3); // Sobel filter for vertical gradient
+    cv::Mat input = cv::imread(filename, cv::IMREAD_GRAYSCALE);
 
-    Mat magnitude, direction;
-    cartToPolar(gradX, gradY, magnitude, direction);
+    cv::Mat output = cv::Mat::zeros(input.rows, input.cols, CV_8UC1);
+    int rowSize = input.rows;
+    int columnSize = input.cols;
+    
+    std::vector <std::vector<double>> Lx = {
+        {1.0/4.0, 0.0, -1.0/4.0},
+        {2.0/4.0, 0.0, -2.0/4.0},
+        {1.0/4.0, 0.0, -1.0/4.0}
+    };
+    std::vector <std::vector<double>> Ly = {
+        {1.0/4.0, 2.0/4.0, 1.0/4.0},
+        {0.0, 0.0, 0.0},
+        {-1.0/4.0, -2.0/4.0, -1.0/4.0}
+    };
 
-    Mat outputImage = Mat::ones(grayImage.size(), CV_8UC1) * 255;
+    for(int row = 1; row < rowSize - 1; row++) {
+        for(int col = 1; col < columnSize - 1; col++) {
 
-    for (int i = 0; i < grayImage.rows; i++) {
-        for (int j = 0; j < grayImage.cols; j++) {
-            if (magnitude.at<float>(i, j) >= threshold) {
-                outputImage.at<uchar>(i, j) = 0;
+            double pixel = input.at<uchar>(row, col);
+            double pixel1 = input.at<uchar>(row - 1, col - 1);
+            double pixel2 = input.at<uchar>(row - 1, col);
+            double pixel3 = input.at<uchar>(row - 1, col + 1);
+            double pixel4 = input.at<uchar>(row, col - 1);
+            double pixel5 = input.at<uchar>(row, col + 1);
+            double pixel6 = input.at<uchar>(row + 1, col - 1);
+            double pixel7 = input.at<uchar>(row + 1, col);
+            double pixel8 = input.at<uchar>(row + 1, col + 1);
+
+            //apply laplacian to the pixel 
+            double convolutedPixelX =
+            pixel1 * Lx[0][0] +
+            pixel2 * Lx[0][1] +
+            pixel3 * Lx[0][2] +
+            pixel4 * Lx[1][0] +
+            pixel  * Lx[1][1] +
+            pixel5 * Lx[1][2] +
+            pixel6 * Lx[2][0] +
+            pixel7 * Lx[2][1] +
+            pixel8 * Lx[2][2];
+
+            double convolutedPixelY =
+            pixel1 * Ly[0][0] +
+            pixel2 * Ly[0][1] +
+            pixel3 * Ly[0][2] +
+            pixel4 * Ly[1][0] +
+            pixel  * Ly[1][1] +
+            pixel5 * Ly[1][2] +
+            pixel6 * Ly[2][0] +
+            pixel7 * Ly[2][1] +
+            pixel8 * Ly[2][2];
+
+
+            double convolutedPixel = sqrt(pow(convolutedPixelX, 2) + pow(convolutedPixelY, 2));
+            
+            if (isSignChanging(input, row, col) && convolutedPixel >= t) {
+                convolutedPixel -= 255;
+                output.at<uchar>(row, col) = convolutedPixel;
+            } else {
+                output.at<uchar>(row, col) = 255;
             }
         }
     }
 
-    // namedWindow("Sobel Vertical", WINDOW_NORMAL);
-    // imshow("Sobel Vertical", gradY);
-
-    // namedWindow("Sobel Horizontal", WINDOW_NORMAL);
-    // imshow("Sobel Horizontal", gradX);
-
-    namedWindow("Output", WINDOW_NORMAL);
-    imshow("Output", outputImage);
-    
+    imshow("Output", output);
     waitKey(0);
 }
 
+
+/* 
+###################################################################
+*/
+
+
+
 int main(int argc, char* argv[]) {
-    marrHildrethEdgeDetection(argv[1]);
-    return 0;
+    //marrHildrethEdgeDetection(argv[1]);
+    test_rehausse_contraste(argv[1]);
+    return 1;
 }
 
 
