@@ -153,14 +153,11 @@ void test_filtre_median(String filename){
 ###################################################################
 */
 
-
-int alpha = 0.6; 
-
-void onTrackbarChange(int, void*) {
+/* void onTrackbarChange(int, void*) {
     // Cette fonction sera appelée à chaque changement de la position du slider
     // Elle met à jour la variable alpha
     alpha = getTrackbarPos("alpha (en %)", "Image");
-}
+} */
 
 Mat rehaussementContraste(Mat input, int alpha_i) {
     float alpha = alpha_i / 100.0;
@@ -272,7 +269,66 @@ void test_sobel(String filename){
 ###################################################################
 */
 
-cv::Mat calculateGradient(const cv::Mat& Ix, const cv::Mat& Iy) {
+
+cv::Mat gradient(cv::Mat input){
+  cv::Mat output = cv::Mat::zeros(input.rows, input.cols, CV_8UC1);
+  int rowSize = input.rows;
+  int columnSize = input.cols;
+  std::vector <std::vector<double>> Lx = {
+    {1.0/4.0, 0.0, -1.0/4.0},
+    {2.0/4.0, 0.0, -2.0/4.0},
+    {1.0/4.0, 0.0, -1.0/4.0}
+  };
+  std::vector <std::vector<double>> Ly = {
+    {1.0/4.0, 2.0/4.0, 1.0/4.0},
+    {0.0, 0.0, 0.0},
+    {-1.0/4.0, -2.0/4.0, -1.0/4.0}
+  };
+  for(int row = 1; row < rowSize - 1; row++) {
+      for(int col = 1; col < columnSize - 1; col++) {
+
+        double pixel = input.at<uchar>(row, col);
+        double pixel1 = input.at<uchar>(row - 1, col - 1);
+        double pixel2 = input.at<uchar>(row - 1, col);
+        double pixel3 = input.at<uchar>(row - 1, col + 1);
+        double pixel4 = input.at<uchar>(row, col - 1);
+        double pixel5 = input.at<uchar>(row, col + 1);
+        double pixel6 = input.at<uchar>(row + 1, col - 1);
+        double pixel7 = input.at<uchar>(row + 1, col);
+        double pixel8 = input.at<uchar>(row + 1, col + 1);
+
+        //apply laplacian to the pixel 
+        double convolutedPixelX =
+          pixel1 * Lx[0][0] +
+          pixel2 * Lx[0][1] +
+          pixel3 * Lx[0][2] +
+          pixel4 * Lx[1][0] +
+          pixel  * Lx[1][1] +
+          pixel5 * Lx[1][2] +
+          pixel6 * Lx[2][0] +
+          pixel7 * Lx[2][1] +
+          pixel8 * Lx[2][2];
+        double convolutedPixelY =
+          pixel1 * Ly[0][0] +
+          pixel2 * Ly[0][1] +
+          pixel3 * Ly[0][2] +
+          pixel4 * Ly[1][0] +
+          pixel  * Ly[1][1] +
+          pixel5 * Ly[1][2] +
+          pixel6 * Ly[2][0] +
+          pixel7 * Ly[2][1] +
+          pixel8 * Ly[2][2];
+        double convolutedPixel = sqrt(pow(convolutedPixelX, 2) + pow(convolutedPixelY, 2));
+        output.at<uchar>(row, col) = convolutedPixel;
+      }
+  }
+
+  return output;
+}
+
+
+
+/* cv::Mat calculateGradient(const cv::Mat& Ix, const cv::Mat& Iy) {
     cv::Mat gradientMagnitude(Ix.size(), CV_32F);
     for (int i = 0; i < Ix.rows; ++i) {
         for (int j = 0; j < Ix.cols; ++j) {
@@ -285,9 +341,9 @@ cv::Mat calculateGradient(const cv::Mat& Ix, const cv::Mat& Iy) {
     }
 
     return gradientMagnitude;
-}
+} */
 
-void test_gradient(string filename) {
+/* void test_gradient(string filename) {
     cv::namedWindow("Original Image", cv::WINDOW_NORMAL);
     cv::namedWindow("Sobel X", cv::WINDOW_NORMAL);
     cv::namedWindow("Sobel Y", cv::WINDOW_NORMAL);
@@ -312,7 +368,7 @@ void test_gradient(string filename) {
     cv::imshow("Gradient Magnitude", gradientMagnitude);
 
     cv::waitKey(0);
-}
+} */
 
 /* 
 ###################################################################
@@ -321,10 +377,9 @@ void test_gradient(string filename) {
 
 int t = 20;
 
-void onTrackbarChangeThreshold(int, void*) {
-    // Cette fonction sera appelée à chaque changement de la position du slider
-    // Elle met à jour la variable threshold
-    t = getTrackbarPos("Treshold track", "Output");
+void onTrackbarChangeThreshold(int val, void* data) {
+  int* ptr_data = (int*)data;
+  *ptr_data = val;
 }
 
 bool isSignChanging(cv::Mat input, int row, int col)
@@ -341,14 +396,71 @@ bool isSignChanging(cv::Mat input, int row, int col)
          (pixel1 > 0 && pixel2 > 0 && pixel3 > 0 && pixel4 > 0 && pixel5 > 0 && pixel6 > 0 && pixel7 > 0 && pixel8 > 0);
 }
 
-void marrHildrethEdgeDetection(String filename)
+cv::Mat marrHildreth(cv::Mat input, double sigma){
+  cv::Mat output = cv::Mat::zeros(input.rows, input.cols, CV_8UC1);
+  int rowSize = input.rows;
+  int columnSize = input.cols;
+  std::vector <std::vector<double>> Lx = {
+    {1.0/4.0, 0.0, -1.0/4.0},
+    {2.0/4.0, 0.0, -2.0/4.0},
+    {1.0/4.0, 0.0, -1.0/4.0}
+  };
+  std::vector <std::vector<double>> Ly = {
+    {1.0/4.0, 2.0/4.0, 1.0/4.0},
+    {0.0, 0.0, 0.0},
+    {-1.0/4.0, -2.0/4.0, -1.0/4.0}
+  };
+  for(int row = 1; row < rowSize - 1; row++) {
+      for(int col = 1; col < columnSize - 1; col++) {
+
+        double pixel = input.at<uchar>(row, col);
+        double pixel1 = input.at<uchar>(row - 1, col - 1);
+        double pixel2 = input.at<uchar>(row - 1, col);
+        double pixel3 = input.at<uchar>(row - 1, col + 1);
+        double pixel4 = input.at<uchar>(row, col - 1);
+        double pixel5 = input.at<uchar>(row, col + 1);
+        double pixel6 = input.at<uchar>(row + 1, col - 1);
+        double pixel7 = input.at<uchar>(row + 1, col);
+        double pixel8 = input.at<uchar>(row + 1, col + 1);
+
+        //apply laplacian to the pixel 
+        double convolutedPixelX =
+          pixel1 * Lx[0][0] +
+          pixel2 * Lx[0][1] +
+          pixel3 * Lx[0][2] +
+          pixel4 * Lx[1][0] +
+          pixel  * Lx[1][1] +
+          pixel5 * Lx[1][2] +
+          pixel6 * Lx[2][0] +
+          pixel7 * Lx[2][1] +
+          pixel8 * Lx[2][2];
+
+        double convolutedPixelY =
+          pixel1 * Ly[0][0] +
+          pixel2 * Ly[0][1] +
+          pixel3 * Ly[0][2] +
+          pixel4 * Ly[1][0] +
+          pixel  * Ly[1][1] +
+          pixel5 * Ly[1][2] +
+          pixel6 * Ly[2][0] +
+          pixel7 * Ly[2][1] +
+          pixel8 * Ly[2][2];
+
+
+        double convolutedPixel = sqrt(pow(convolutedPixelX, 2) + pow(convolutedPixelY, 2));
+        if(isSignChanging(input, row, col) && convolutedPixel >= sigma){
+            convolutedPixel -= 255;
+            output.at<uchar>(row, col) = convolutedPixel;
+          }else{
+            output.at<uchar>(row, col) = 255;
+          }
+    }
+  }
+  return output;
+}
+
+cv::Mat esquisse(Mat input, int seuilMarr, int proportionT, int longueur)
 {
-    namedWindow("Output", WINDOW_NORMAL);
-    createTrackbar("Treshold track", "Output", &t, 200, onTrackbarChangeThreshold);
-    onTrackbarChangeThreshold(t, nullptr); // Initialisation de la valeur threshold
-
-    cv::Mat input = cv::imread(filename, cv::IMREAD_GRAYSCALE);
-
     cv::Mat output = cv::Mat::zeros(input.rows, input.cols, CV_8UC1);
     int rowSize = input.rows;
     int columnSize = input.cols;
@@ -403,30 +515,164 @@ void marrHildrethEdgeDetection(String filename)
 
             double convolutedPixel = sqrt(pow(convolutedPixelX, 2) + pow(convolutedPixelY, 2));
             
-            if (isSignChanging(input, row, col) && convolutedPixel >= t) {
-                convolutedPixel -= 255;
-                output.at<uchar>(row, col) = convolutedPixel;
-            } else {
+            if(isSignChanging(input, row, col) && convolutedPixel >= seuilMarr){
+                double r = (double)rand() / RAND_MAX;
+                if(r < proportionT/100.0) {
+                    double angle = atan2(- convolutedPixelX,convolutedPixelY) + M_PI/2 + 0.02*(r-0.5);
+                    double l2 = convolutedPixel/255.0 * longueur/10.0;
+                    cv::line(
+                        output,
+                        cv::Point(
+                            col + l2 * cos(angle),
+                            row + l2 * sin(angle)
+                        ),
+                        cv::Point(
+                            col - l2 * cos(angle),
+                            row - l2 * sin(angle)
+                        ),
+                        cv::Scalar(0, 0, 0)
+                    );
+                }
+            }else{
                 output.at<uchar>(row, col) = 255;
             }
         }
     }
 
-    imshow("Output", output);
-    waitKey(0);
+    return output;
 }
 
+
+void on_trackbar(int val, void* data) {
+  int* ptr_data = (int*)data;
+  *ptr_data = val;
+}
+
+int test(String filename)
+{
+    namedWindow( "Youpi");
+    int threshold = 20;
+    cv::Mat input = cv::imread(filename);
+    
+    while ( true ) {
+        if ( input.channels() == 3 ) {
+            cv::cvtColor( input, input, COLOR_BGR2GRAY );
+        }
+        int keycode = waitKey( 50 );
+        int asciicode = keycode & 0xff;
+        
+        createTrackbar( "threshold (en %)", "Youpi", &threshold, 100,  NULL);
+        setTrackbarPos( "threshold (en %)", "Filter", threshold ); // init à 20
+
+        // récupère la valeur courante de threshold
+        threshold = getTrackbarPos( "threshold (en %)", "Youpi" );
+        if ( asciicode == 'q' ) break;
+        if ( asciicode == 'h' ) {
+            input = marrHildreth(input, threshold);
+        }
+        if ( asciicode == 'e' ) {
+            input = esquisse(input, threshold, 20, 20);
+        }
+        if ( asciicode == 'r' ) {
+            input = cv::imread(filename);
+            cv::cvtColor( input, input, COLOR_BGR2GRAY );
+        }
+        imshow( "Youpi", input );
+    }
+    return 0;
+}
 
 /* 
 ###################################################################
 */
 
 
+int test_video()
+{
+    namedWindow( "Youpi");               // crée une fenêtre
+    VideoCapture cap(0);
+    if(!cap.isOpened()) return -1;
+    Mat input;
+    int alpha = 20;
+    int seuilMarr = 20;
+    int proportionT = 20;
+    int longueur = 20;
+    int asciicode = 255;
+    int cpt = 0;
+    while ( true ) {
+        cap >> input;
+        if ( input.channels() == 3 ) {
+            cv::cvtColor( input, input, COLOR_BGR2GRAY );
+        }
+        int keycode = waitKey( 50 );
+        if(keycode != -1) {
+            asciicode = keycode & 0xff;
+            if(asciicode == 'a' || asciicode == 'm' || asciicode == 's') cpt++;
+        }
+        
+        createTrackbar( "alpha (en %)", "Youpi", 0, 200,  on_trackbar, &alpha);
+        setTrackbarPos( "alpha (en %)", "Youpi", alpha ); // init à 20
 
-int main(int argc, char* argv[]) {
-    //marrHildrethEdgeDetection(argv[1]);
-    test_rehausse_contraste(argv[1]);
-    return 1;
+        createTrackbar( "seuil Marr", "Youpi", 0, 200,  on_trackbar, &seuilMarr);
+        setTrackbarPos( "seuil Marr", "Youpi", seuilMarr ); // init à 20
+
+        createTrackbar( "t (% chance segment)", "Youpi", 0, 100.0, on_trackbar, &proportionT);
+        setTrackbarPos( "t (% chance segment)", "Youpi", proportionT ); // init à 20
+
+        createTrackbar( "L longueur trait", "Youpi", 0, 1000, on_trackbar, &longueur);
+        setTrackbarPos( "L longueur trait", "Youpi", longueur ); // init à 20
+
+        // récupère la valeur courante de alpha
+        alpha = getTrackbarPos( "alpha (en %)", "Youpi" );
+        if ( asciicode == 'q' ) break;
+        //if a is pressed apply filterM to the image
+        if ( asciicode == 'a' ) {
+            for (int i = 0; i < cpt; i++)
+            {
+                Mat M = (Mat_<float>(3, 3) << 1.0 / 16, 2.0 / 16, 1.0 / 16,
+                                        2.0 / 16, 4.0 / 16, 2.0 / 16,
+                                        1.0 / 16, 2.0 / 16, 1.0 / 16);
+                input = filtreM(input, M);
+            }
+        }
+        if ( asciicode == 'm' ) {
+            for (int i = 0; i < cpt; i++)
+            {
+                input = filtreMedianBlur(input);
+            }
+        }
+        if ( asciicode == 's' ) {
+            for (int i = 0; i < cpt; i++)
+            {
+                input = rehaussementContraste(input, alpha);
+            }
+        }
+        if ( asciicode == 'x' ) {
+            input = sobelFilter(input, false);
+        }
+        if ( asciicode == 'y' ) {
+            input = sobelFilter(input, true);
+        }
+        if ( asciicode == 'g' ) {
+            input = gradient(input);
+        }
+        if ( asciicode == 'h' ) {
+            input = marrHildreth(input, seuilMarr);
+        }
+        if ( asciicode == 'e' ) {
+            input = esquisse(input, seuilMarr, proportionT, longueur);
+        }
+        if ( asciicode == 'r' ) {
+            cpt = 0;
+            asciicode = 255;
+        }
+        imshow( "Youpi", input );          // l'affiche dans la fenêtreq
+    }
+    return 0;
 }
 
 
+int main(int argc, char* argv[])
+{
+    return test_video();
+}
