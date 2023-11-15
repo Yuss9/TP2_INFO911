@@ -318,10 +318,55 @@ void test_gradient(string filename) {
 ###################################################################
 */
 
+void marrHildrethEdgeDetection(String filename){
+    Mat input = imread(filename, IMREAD_GRAYSCALE);
+    int threshold = 90;
 
+    if (input.empty()) {
+        cerr << "Error: Couldn't load the image." << endl;
+        return;
+    }
 
+    namedWindow("Original Image", WINDOW_NORMAL);
+    imshow("Original Image", input);
+
+    Mat inputImage = imread(filename);
+
+    Mat grayImage;
+    cvtColor(inputImage, grayImage, COLOR_BGR2GRAY);
+
+    Mat gradX, gradY;
+    Sobel(grayImage, gradX, CV_32F, 1, 0, 3); // Sobel filter for horizontal gradient
+    Sobel(grayImage, gradY, CV_32F, 0, 1, 3); // Sobel filter for vertical gradient
+
+    Mat magnitude, direction;
+    cartToPolar(gradX, gradY, magnitude, direction);
+
+    Mat outputImage = Mat::ones(grayImage.size(), CV_8UC1) * 255;
+
+    for (int i = 0; i < grayImage.rows; i++) {
+        for (int j = 0; j < grayImage.cols; j++) {
+            if (magnitude.at<float>(i, j) >= threshold) {
+                outputImage.at<uchar>(i, j) = 0;
+            }
+        }
+    }
+
+    // namedWindow("Sobel Vertical", WINDOW_NORMAL);
+    // imshow("Sobel Vertical", gradY);
+
+    // namedWindow("Sobel Horizontal", WINDOW_NORMAL);
+    // imshow("Sobel Horizontal", gradX);
+
+    namedWindow("Output", WINDOW_NORMAL);
+    imshow("Output", outputImage);
+    
+    waitKey(0);
+}
 
 int main(int argc, char* argv[]) {
-    test_gradient(argv[1]);
+    marrHildrethEdgeDetection(argv[1]);
     return 0;
 }
+
+
